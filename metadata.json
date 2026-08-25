@@ -1,0 +1,10 @@
+{
+  "name": "Soccer Striker",
+  "description": "Score on the goal past obstacle balls with Gemini 3 Flash tactical co-pilot in this webcam slingshot soccer game.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
