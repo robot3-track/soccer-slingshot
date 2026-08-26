@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Attempt to locate the gradle installation or download wrapper jar if missing
+DIRNAME=`dirname "$0"`
+if [ -f "$DIRNAME/gradle/wrapper/gradle-wrapper.jar" ]; then
+    exec java -jar "$DIRNAME/gradle/wrapper/gradle-wrapper.jar" "$@"
+elif command -v gradle >/dev/null 2>&1; then
+    exec gradle "$@"
+else
+    echo "Gradle not found. Please install gradle or add gradle-wrapper.jar."
+    exit 1
+fi
