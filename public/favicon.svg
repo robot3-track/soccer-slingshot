@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <radialGradient id="ballShade" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="60%" stop-color="#eeeeee"/>
+      <stop offset="90%" stop-color="#cccccc"/>
+      <stop offset="100%" stop-color="#999999"/>
+    </radialGradient>
+    <radialGradient id="shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(0,0,0,0.3)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+    </radialGradient>
+  </defs>
+  <!-- Ball Base -->
+  <circle cx="32" cy="32" r="30" fill="url(#ballShade)" stroke="#222222" stroke-width="2"/>
+  <!-- Center Pentagon -->
+  <polygon points="32,20 42,27 38,39 26,39 22,27" fill="#222222"/>
+  <!-- Seam Lines from Center -->
+  <line x1="32" y1="20" x2="32" y2="4" stroke="#222222" stroke-width="2"/>
+  <line x1="42" y1="27" x2="57" y2="18" stroke="#222222" stroke-width="2"/>
+  <line x1="38" y1="39" x2="52" y2="52" stroke="#222222" stroke-width="2"/>
+  <line x1="26" y1="39" x2="12" y2="52" stroke="#222222" stroke-width="2"/>
+  <line x1="22" y1="27" x2="7" y2="18" stroke="#222222" stroke-width="2"/>
+  <!-- Outer Pentagons -->
+  <polygon points="26,3 38,3 32,10" fill="#222222"/>
+  <polygon points="58,14 62,26 53,24" fill="#222222"/>
+  <polygon points="56,48 48,58 46,47" fill="#222222"/>
+  <polygon points="8,48 16,58 18,47" fill="#222222"/>
+  <polygon points="6,14 2,26 11,24" fill="#222222"/>
+  <!-- Outer Seams connecting outer patches -->
+  <path d="M 32,4 A 30,30 0 0,1 57,18" fill="none" stroke="#222222" stroke-width="1.8"/>
+  <path d="M 57,18 A 30,30 0 0,1 52,52" fill="none" stroke="#222222" stroke-width="1.8"/>
+  <path d="M 52,52 A 30,30 0 0,1 12,52" fill="none" stroke="#222222" stroke-width="1.8"/>
+  <path d="M 12,52 A 30,30 0 0,1 7,18" fill="none" stroke="#222222" stroke-width="1.8"/>
+  <path d="M 7,18 A 30,30 0 0,1 32,4" fill="none" stroke="#222222" stroke-width="1.8"/>
+  <!-- Glossy Specular Highlight -->
+  <ellipse cx="23" cy="18" rx="8" ry="4" transform="rotate(-30 23 18)" fill="rgba(255,255,255,0.6)"/>
+</svg>

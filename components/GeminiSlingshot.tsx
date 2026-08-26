@@ -18,7 +18,7 @@ const MAX_DRAG_DIST = 170;
 const MIN_FORCE_MULT = 0.16;
 const MAX_FORCE_MULT = 0.46;
 
-// Material Design Colors & Shot Technique Strategy
+// Colors and shot technique configurations
 const COLOR_CONFIG: Record<BallColor, ShotStyleConfig> = {
   red:    { hex: '#ef5350', points: 100, label: 'Power Blast', technique: 'Direct Strike', powerMultiplier: 1.35, curveFactor: 0.0, description: 'Blasts straight past obstacle balls with extreme velocity' },
   blue:   { hex: '#42a5f5', points: 150, label: 'Finesse Curler', technique: 'Corner Placement', powerMultiplier: 1.05, curveFactor: 0.18, description: 'Pinpoint accuracy into top and bottom goal corners' },
@@ -112,13 +112,13 @@ const GeminiSlingshot: React.FC = () => {
   const captureRequestRef = useRef<boolean>(false);
   const selectedColorRef = useRef<BallColor>('orange');
   const isProcessingHandFrame = useRef<boolean>(false);
-  const geminiHelpEnabledRef = useRef<boolean>(true);
+  const geminiHelpEnabledRef = useRef<boolean>(false);
   
   // React State
   const [loading, setLoading] = useState(true);
-  const [geminiHelpEnabled, setGeminiHelpEnabled] = useState<boolean>(true);
+  const [geminiHelpEnabled, setGeminiHelpEnabled] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const [aiHint, setAiHint] = useState<string | null>("Analyzing goal openings & single defender lane...");
+  const [aiHint, setAiHint] = useState<string | null>("Gemini Strategy Assistance is disabled. Toggle AI ON above to receive live tactical hints & aim guides.");
   const [aiRationale, setAiRationale] = useState<string | null>(null);
   const [aimTarget, setAimTarget] = useState<Point | null>(null);
   const [score, setScore] = useState(0);
@@ -126,7 +126,7 @@ const GeminiSlingshot: React.FC = () => {
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [selectedColor, setSelectedColor] = useState<BallColor>('orange');
   const [availableColors] = useState<BallColor[]>(COLOR_KEYS);
-  const [aiRecommendedColor, setAiRecommendedColor] = useState<BallColor | null>('orange');
+  const [aiRecommendedColor, setAiRecommendedColor] = useState<BallColor | null>(null);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
 
   // Sync state to refs
@@ -356,7 +356,7 @@ const GeminiSlingshot: React.FC = () => {
     ];
     obstacles.current = roster;
 
-    // Initial AI analysis (if Gemini help is enabled)
+    // Initial tactical analysis if enabled
     if (geminiHelpEnabledRef.current) {
       setTimeout(() => {
         captureRequestRef.current = true;
@@ -364,7 +364,7 @@ const GeminiSlingshot: React.FC = () => {
     }
   }, []);
 
-  // Dynamically add a defender strictly when user scores a goal
+  // Dynamically add a defender when user scores a goal
   const addDefenderOnScore = useCallback((canvasWidth: number) => {
     const inactiveObstacles = obstacles.current.filter(o => !o.active);
     let addedLabel = '';
@@ -1480,7 +1480,7 @@ const GeminiSlingshot: React.FC = () => {
 
       ctx.restore();
 
-      // Screenshot Capture for AI Vision (Only when Gemini Strategy Help is enabled)
+      // Screenshot capture for field analysis
       if (captureRequestRef.current && geminiHelpEnabledRef.current) {
         captureRequestRef.current = false;
         const offscreen = document.createElement('canvas');

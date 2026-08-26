@@ -6,7 +6,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { StrategicHint, AiResponse, DebugInfo, BallColor } from "../types";
 
-// Initialize Gemini Client
+// Client initialization
 const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
 let ai: GoogleGenAI | null = null;
 
@@ -61,7 +61,7 @@ export const getStrategicHint = async (
     timestamp: new Date().toLocaleTimeString()
   };
 
-  // Local Tactical Heuristic Fallback
+  // Fallback heuristic calculations
   const getBestLocalTarget = (msg: string = "Aim for the open goal corner!"): StrategicHint => {
     if (validTargets.length > 0) {
       // Find open pocket furthest from keeper and with clear path
@@ -180,7 +180,7 @@ ${targetListStr}
     let text = response.text || "{}";
     debug.rawResponse = text;
     
-    // Robust JSON Extraction
+    // Extract JSON substring
     const firstBrace = text.indexOf('{');
     const lastBrace = text.lastIndexOf('}');
 
