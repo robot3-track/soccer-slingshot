@@ -13,6 +13,8 @@ const PINCH_THRESHOLD = 0.065;
 const GRAVITY = 0.04;
 const FRICTION = 0.995;
 const BALL_RADIUS = 24;
+const MAX_DEFENDERS_MOBILE = 3;
+const MAX_DEFENDERS_DESKTOP = 5;
 const SLINGSHOT_BOTTOM_OFFSET = 200;
 const MAX_DRAG_DIST = 170;
 const MIN_FORCE_MULT = 0.16;
@@ -81,6 +83,13 @@ const GeminiSlingshot: React.FC = () => {
   const defenderLevelRef = useRef<number>(1);
   const lastDefenderSpawnTimeRef = useRef<number>(0);
   const totalDefendersAllowedRef = useRef<number>(1);
+  const ballRadiusRef = useRef<number>(22);
+  const goalDimensionsRef = useRef<{ x: number; y: number; width: number; height: number }>({
+    x: 0,
+    y: 55,
+    width: 500,
+    height: 120
+  });
 
   const goalkeeper = useRef<ObstacleBall>({
     id: 'keeper',
@@ -177,16 +186,35 @@ const GeminiSlingshot: React.FC = () => {
     });
   }, []);
 
-  // Generate soccer goal & field layout with ONLY 1 INITIAL DEFENDER
+  // Generate soccer goal & field layout with responsive defender sizing and limits
   const initPitch = useCallback((width: number, height: number) => {
-    const goalWidth = Math.min(width * 0.72, 540);
-    const goalHeight = Math.min(Math.max(75, height * 0.28), 120);
+    const isMobile = width < 768 || height < 550 || (typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+
+    const goalWidth = Math.min(width * (isMobile ? 0.72 : 0.58), 540);
+    const goalHeight = isMobile ? Math.min(Math.max(68, height * 0.25), 92) : 120;
     const goalX = (width - goalWidth) / 2;
-    const goalY = Math.max(15, height * 0.08);
+    const goalY = isMobile ? Math.max(12, height * 0.06) : 55;
+
+    goalDimensionsRef.current = { x: goalX, y: goalY, width: goalWidth, height: goalHeight };
+
+    // Responsive ball and obstacle sizing
+    // Defenders & obstacles are scaled smaller on mobile/Android to provide clear shot lanes and realistic pitch geometry
+    const ballRadius = isMobile 
+      ? Math.max(14, Math.min(18, width * 0.038)) 
+      : 24;
+    ballRadiusRef.current = ballRadius;
+
+    const defRadius = isMobile 
+      ? Math.max(12, Math.min(16, width * 0.034)) 
+      : Math.min(27, Math.max(20, width * 0.04));
+
+    const keeperRadius = isMobile 
+      ? Math.max(13, Math.min(17, goalHeight * 0.22)) 
+      : Math.min(28, goalHeight * 0.25);
 
     // 5 Strategic Goal Scoring Pockets
-    const pocketW = Math.min(80, goalWidth * 0.22);
-    const pocketH = Math.min(50, goalHeight * 0.42);
+    const pocketW = Math.min(isMobile ? 56 : 80, goalWidth * 0.22);
+    const pocketH = Math.min(isMobile ? 36 : 50, goalHeight * 0.42);
 
     const pockets: GoalPocket[] = [
       {
@@ -266,14 +294,14 @@ const GeminiSlingshot: React.FC = () => {
     goalkeeper.current = {
       id: 'keeper',
       x: goalX + goalWidth / 2,
-      y: goalY + goalHeight - 18,
-      radius: Math.min(28, goalHeight * 0.25),
-      vx: 2.6,
+      y: goalY + goalHeight - (isMobile ? 12 : 18),
+      radius: keeperRadius,
+      vx: isMobile ? 1.8 : 2.6,
       vy: 0,
       type: 'keeper',
       color: '#ffca28',
-      patrolMinX: goalX + 50,
-      patrolMaxX: goalX + goalWidth - 50,
+      patrolMinX: goalX + (isMobile ? 25 : 50),
+      patrolMaxX: goalX + goalWidth - (isMobile ? 25 : 50),
       active: true,
       label: 'GK'
     };
@@ -283,11 +311,10 @@ const GeminiSlingshot: React.FC = () => {
     totalDefendersAllowedRef.current = 1;
     lastDefenderSpawnTimeRef.current = performance.now();
 
-    const defRadius = Math.min(27, Math.max(18, width * 0.04));
-    const def1Y = goalY + Math.min(190, height * 0.38);
-    const def23Y = goalY + Math.min(160, height * 0.32);
-    const bumperY = goalY + Math.min(260, height * 0.52);
-    const coneY = goalY + Math.min(230, height * 0.46);
+    const def1Y = goalY + (isMobile ? Math.min(110, height * 0.28) : Math.min(190, height * 0.38));
+    const def23Y = goalY + (isMobile ? Math.min(85, height * 0.22) : Math.min(160, height * 0.32));
+    const bumperY = goalY + (isMobile ? Math.min(145, height * 0.38) : Math.min(260, height * 0.52));
+    const coneY = goalY + (isMobile ? Math.min(125, height * 0.33) : Math.min(230, height * 0.46));
 
     const roster: ObstacleBall[] = [
       // Defender 1: Central patrol defender (STARTING DEFENDER)
@@ -296,10 +323,10 @@ const GeminiSlingshot: React.FC = () => {
         x: width / 2,
         y: def1Y,
         radius: defRadius,
-        vx: 1.8,
+        vx: isMobile ? 1.4 : 1.8,
         vy: 0,
-        patrolMinX: width / 2 - Math.min(130, width * 0.28),
-        patrolMaxX: width / 2 + Math.min(130, width * 0.28),
+        patrolMinX: width / 2 - Math.min(isMobile ? 70 : 130, width * 0.28),
+        patrolMaxX: width / 2 + Math.min(isMobile ? 70 : 130, width * 0.28),
         type: 'defender',
         color: '#e53935',
         active: true, // Only 1 active initially!
@@ -308,13 +335,13 @@ const GeminiSlingshot: React.FC = () => {
       // Defender 2: Right-wing sweeping defender (Unlocks overtime)
       {
         id: 'def-2',
-        x: width / 2 + Math.min(140, width * 0.25),
+        x: width / 2 + Math.min(isMobile ? 65 : 140, width * 0.25),
         y: def23Y,
         radius: defRadius,
-        vx: -1.6,
+        vx: isMobile ? -1.3 : -1.6,
         vy: 0,
-        patrolMinX: width / 2 + Math.min(40, width * 0.08),
-        patrolMaxX: width / 2 + Math.min(200, width * 0.36),
+        patrolMinX: width / 2 + Math.min(isMobile ? 18 : 40, width * 0.08),
+        patrolMaxX: width / 2 + Math.min(isMobile ? 100 : 200, width * 0.36),
         type: 'defender',
         color: '#e53935',
         active: false,
@@ -323,13 +350,13 @@ const GeminiSlingshot: React.FC = () => {
       // Defender 3: Left-wing sweeping defender (Unlocks overtime)
       {
         id: 'def-3',
-        x: width / 2 - Math.min(140, width * 0.25),
+        x: width / 2 - Math.min(isMobile ? 65 : 140, width * 0.25),
         y: def23Y,
         radius: defRadius,
-        vx: 1.6,
+        vx: isMobile ? 1.3 : 1.6,
         vy: 0,
-        patrolMinX: width / 2 - Math.min(200, width * 0.36),
-        patrolMaxX: width / 2 - Math.min(40, width * 0.08),
+        patrolMinX: width / 2 - Math.min(isMobile ? 100 : 200, width * 0.36),
+        patrolMaxX: width / 2 - Math.min(isMobile ? 18 : 40, width * 0.08),
         type: 'defender',
         color: '#e53935',
         active: false,
@@ -341,10 +368,10 @@ const GeminiSlingshot: React.FC = () => {
         x: width / 2,
         y: bumperY,
         radius: defRadius * 1.05,
-        vx: 1.2,
+        vx: isMobile ? 1.0 : 1.2,
         vy: 0,
-        patrolMinX: width / 2 - Math.min(90, width * 0.2),
-        patrolMaxX: width / 2 + Math.min(90, width * 0.2),
+        patrolMinX: width / 2 - Math.min(isMobile ? 45 : 90, width * 0.2),
+        patrolMaxX: width / 2 + Math.min(isMobile ? 45 : 90, width * 0.2),
         type: 'bumper',
         color: '#8e24aa',
         active: false,
@@ -353,7 +380,7 @@ const GeminiSlingshot: React.FC = () => {
       // Defender 5: Outer Wing Barrier Cone (Unlocks overtime)
       {
         id: 'def-cone-left',
-        x: width / 2 - Math.min(220, width * 0.38),
+        x: width / 2 - Math.min(isMobile ? 100 : 220, width * 0.38),
         y: coneY,
         radius: defRadius * 0.85,
         vx: 0,
@@ -374,8 +401,25 @@ const GeminiSlingshot: React.FC = () => {
     }
   }, []);
 
-  // Dynamically add a defender when user scores a goal
+  // Dynamically add a defender when user scores a goal, strictly capped by defender limits
   const addDefenderOnScore = useCallback((canvasWidth: number) => {
+    const isMobile = canvasWidth < 768 || (typeof window !== 'undefined' && window.innerWidth < 768) || (typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+    const maxAllowed = isMobile ? MAX_DEFENDERS_MOBILE : MAX_DEFENDERS_DESKTOP;
+    
+    const activeObstacles = obstacles.current.filter(o => o.active);
+    
+    // Check if defender limit has been reached
+    if (activeObstacles.length >= maxAllowed) {
+      // Cap reached: do NOT spawn or activate more defenders
+      // Apply slight challenge bonus to defender speed instead (safely clamped)
+      activeObstacles.forEach(obs => {
+        if (Math.abs(obs.vx) < (isMobile ? 2.4 : 3.2) && obs.type !== 'cone') {
+          obs.vx *= 1.04;
+        }
+      });
+      return `MAX DEFENDERS (${activeObstacles.length}/${maxAllowed})`;
+    }
+
     const inactiveObstacles = obstacles.current.filter(o => !o.active);
     let addedLabel = '';
 
@@ -384,19 +428,24 @@ const GeminiSlingshot: React.FC = () => {
       nextDefender.active = true;
       totalDefendersAllowedRef.current += 1;
       defenderLevelRef.current += 1;
-      addedLabel = nextDefender.label || `DEF ${totalDefendersAllowedRef.current}`;
-    } else {
-      // If all initial defenders are active, spawn an additional roving defender
+      const currentActiveCount = obstacles.current.filter(o => o.active).length;
+      addedLabel = `${nextDefender.label || `DEF ${currentActiveCount}`} (${currentActiveCount}/${maxAllowed})`;
+    } else if (obstacles.current.length < maxAllowed) {
+      // Safety fallback to add up to maxAllowed if needed
       const count = obstacles.current.length + 1;
+      const defRadius = isMobile 
+        ? Math.max(12, Math.min(16, canvasWidth * 0.034)) 
+        : Math.min(27, Math.max(20, canvasWidth * 0.04));
+      
       const newDef: ObstacleBall = {
         id: `def-${count}`,
-        x: canvasWidth * (0.25 + Math.random() * 0.5),
-        y: 55 + 130 + Math.random() * 140,
-        radius: 26,
-        vx: (Math.random() > 0.5 ? 1 : -1) * (1.6 + Math.random() * 0.6),
+        x: canvasWidth * (0.28 + Math.random() * 0.44),
+        y: (goalDimensionsRef.current.y || 50) + (isMobile ? 75 + Math.random() * 55 : 130 + Math.random() * 140),
+        radius: defRadius,
+        vx: (Math.random() > 0.5 ? 1 : -1) * (isMobile ? 1.3 : 1.7),
         vy: 0,
-        patrolMinX: canvasWidth * 0.2,
-        patrolMaxX: canvasWidth * 0.8,
+        patrolMinX: canvasWidth * (isMobile ? 0.15 : 0.2),
+        patrolMaxX: canvasWidth * (isMobile ? 0.85 : 0.8),
         type: 'defender',
         color: '#e53935',
         active: true,
@@ -405,7 +454,7 @@ const GeminiSlingshot: React.FC = () => {
       obstacles.current.push(newDef);
       totalDefendersAllowedRef.current += 1;
       defenderLevelRef.current += 1;
-      addedLabel = newDef.label;
+      addedLabel = `${newDef.label} (${count}/${maxAllowed})`;
     }
     return addedLabel;
   }, []);
@@ -456,6 +505,7 @@ const GeminiSlingshot: React.FC = () => {
     let minObstacleDist = Infinity;
 
     const allObstacles = [...obstacles.current.filter(o => o.active), goalkeeper.current];
+    const ballR = ballRadiusRef.current || 20;
 
     for (let i = 1; i < steps - 1; i++) {
       const t = i / steps;
@@ -465,7 +515,7 @@ const GeminiSlingshot: React.FC = () => {
       for (const obs of allObstacles) {
         const d = Math.sqrt(Math.pow(cx - obs.x, 2) + Math.pow(cy - obs.y, 2));
         if (d < minObstacleDist) minObstacleDist = d;
-        if (d < obs.radius + BALL_RADIUS * 0.8) {
+        if (d < obs.radius + ballR * 0.8) {
           return { isClear: false, minDist: d };
         }
       }
@@ -676,6 +726,7 @@ const GeminiSlingshot: React.FC = () => {
     const r = obs.radius;
     const x = obs.x;
     const y = obs.y;
+    const isSmall = r < 18;
 
     // Shadow
     ctx.beginPath();
@@ -695,22 +746,24 @@ const GeminiSlingshot: React.FC = () => {
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fillStyle = grad;
       ctx.fill();
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = isSmall ? 1.5 : 2.5;
       ctx.strokeStyle = '#ffffff';
       ctx.stroke();
 
-      // Goalkeeper Glove Badges
+      // Goalkeeper Glove Badges (scaled)
+      const gloveR = Math.max(3.5, r * 0.25);
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(x - r * 0.85, y, 7, 0, Math.PI * 2);
-      ctx.arc(x + r * 0.85, y, 7, 0, Math.PI * 2);
+      ctx.arc(x - r * 0.85, y, gloveR, 0, Math.PI * 2);
+      ctx.arc(x + r * 0.85, y, gloveR, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#f57f17';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1;
       ctx.stroke();
 
+      const fontSize = Math.max(7.5, Math.min(12, r * 0.52));
       ctx.fillStyle = '#212121';
-      ctx.font = 'bold 12px Roboto, sans-serif';
+      ctx.font = `bold ${fontSize}px Roboto, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('GK', x, y);
@@ -725,7 +778,7 @@ const GeminiSlingshot: React.FC = () => {
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fillStyle = grad;
       ctx.fill();
-      ctx.lineWidth = 2;
+      ctx.lineWidth = isSmall ? 1.5 : 2;
       ctx.strokeStyle = 'rgba(255,255,255,0.7)';
       ctx.stroke();
 
@@ -735,12 +788,14 @@ const GeminiSlingshot: React.FC = () => {
       ctx.arc(x, y, r - 1, 0, Math.PI * 2);
       ctx.clip();
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(x - 5, y - r, 10, r * 2);
+      const stripeW = Math.max(3, r * 0.35);
+      ctx.fillRect(x - stripeW / 2, y - r, stripeW, r * 2);
       ctx.restore();
 
       // Label
+      const fontSize = Math.max(7, Math.min(10, r * 0.46));
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px Roboto, sans-serif';
+      ctx.font = `bold ${fontSize}px Roboto, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(obs.label || 'DEF', x, y);
@@ -757,13 +812,14 @@ const GeminiSlingshot: React.FC = () => {
       ctx.fill();
 
       ctx.strokeStyle = '#ce93d8';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = isSmall ? 1.5 : 2;
       ctx.beginPath();
       ctx.arc(x, y, r * 0.65, 0, Math.PI * 2);
       ctx.stroke();
 
+      const fontSize = Math.max(6.5, Math.min(9, r * 0.42));
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 9px Roboto, sans-serif';
+      ctx.font = `bold ${fontSize}px Roboto, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('BUMP', x, y);
@@ -778,7 +834,7 @@ const GeminiSlingshot: React.FC = () => {
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fillStyle = grad;
       ctx.fill();
-      ctx.lineWidth = 2;
+      ctx.lineWidth = isSmall ? 1.5 : 2;
       ctx.strokeStyle = '#ffffff';
       ctx.stroke();
     }
@@ -788,11 +844,8 @@ const GeminiSlingshot: React.FC = () => {
 
   // Draw Soccer Goal Structure & Net
   const drawSoccerGoal = (ctx: CanvasRenderingContext2D, width: number) => {
-    const goalWidth = Math.min(width * 0.58, 540);
-    const goalHeight = 120;
-    const goalX = (width - goalWidth) / 2;
-    const goalY = 55;
-    const postRadius = 7;
+    const { x: goalX, y: goalY, width: goalWidth, height: goalHeight } = goalDimensionsRef.current;
+    const postRadius = Math.max(4, Math.min(7, goalHeight * 0.07));
 
     ctx.save();
 
@@ -1335,14 +1388,16 @@ const GeminiSlingshot: React.FC = () => {
           ballPos.current.y += ballVel.current.y;
           ballRotation.current += (ballVel.current.x + ballVel.current.y) * 0.04;
 
+          const currentBallRadius = ballRadiusRef.current || 20;
+
           // Wall Bounces
-          if (ballPos.current.x < BALL_RADIUS) {
-            ballPos.current.x = BALL_RADIUS;
+          if (ballPos.current.x < currentBallRadius) {
+            ballPos.current.x = currentBallRadius;
             ballVel.current.x *= -0.85;
             soundFx.playBounce('wall');
             createRicochetParticles(ballPos.current.x, ballPos.current.y, config.hex);
-          } else if (ballPos.current.x > canvas.width - BALL_RADIUS) {
-            ballPos.current.x = canvas.width - BALL_RADIUS;
+          } else if (ballPos.current.x > canvas.width - currentBallRadius) {
+            ballPos.current.x = canvas.width - currentBallRadius;
             ballVel.current.x *= -0.85;
             soundFx.playBounce('wall');
             createRicochetParticles(ballPos.current.x, ballPos.current.y, config.hex);
@@ -1352,15 +1407,15 @@ const GeminiSlingshot: React.FC = () => {
           const allActiveObstacles = [...obstacles.current.filter(o => o.active), goalkeeper.current];
           for (const obs of allActiveObstacles) {
             const dist = Math.sqrt(Math.pow(ballPos.current.x - obs.x, 2) + Math.pow(ballPos.current.y - obs.y, 2));
-            if (dist < BALL_RADIUS + obs.radius) {
+            if (dist < currentBallRadius + obs.radius) {
               const angle = Math.atan2(ballPos.current.y - obs.y, ballPos.current.x - obs.x);
               const speed = Math.sqrt(ballVel.current.x ** 2 + ballVel.current.y ** 2);
               const bounceFactor = obs.type === 'bumper' ? 1.25 : 0.9;
 
               ballVel.current.x = Math.cos(angle) * speed * bounceFactor;
               ballVel.current.y = Math.sin(angle) * speed * bounceFactor;
-              ballPos.current.x = obs.x + Math.cos(angle) * (BALL_RADIUS + obs.radius + 3);
-              ballPos.current.y = obs.y + Math.sin(angle) * (BALL_RADIUS + obs.radius + 3);
+              ballPos.current.x = obs.x + Math.cos(angle) * (currentBallRadius + obs.radius + 3);
+              ballPos.current.y = obs.y + Math.sin(angle) * (currentBallRadius + obs.radius + 3);
 
               soundFx.playBounce(obs.type as any);
               createRicochetParticles(ballPos.current.x, ballPos.current.y, obs.color);
@@ -1368,17 +1423,14 @@ const GeminiSlingshot: React.FC = () => {
             }
           }
 
-          // Check Goal Scoring Detection
-          const goalWidth = Math.min(canvas.width * 0.58, 540);
-          const goalHeight = 120;
-          const goalX = (canvas.width - goalWidth) / 2;
-          const goalY = 55;
+          // Check Goal Scoring Detection using dynamic goal dimensions
+          const { x: goalX, y: goalY, width: goalWidth, height: goalHeight } = goalDimensionsRef.current;
 
           if (
             ballPos.current.y <= goalY + goalHeight &&
             ballPos.current.y >= goalY &&
-            ballPos.current.x >= goalX + 15 &&
-            ballPos.current.x <= goalX + goalWidth - 15
+            ballPos.current.x >= goalX + 12 &&
+            ballPos.current.x <= goalX + goalWidth - 12
           ) {
             let matchedPocket = goalPockets.current.find(p => {
               return (
@@ -1388,16 +1440,16 @@ const GeminiSlingshot: React.FC = () => {
             });
 
             if (!matchedPocket) {
-              matchedPocket = goalPockets.current[4];
+              matchedPocket = goalPockets.current[4] || goalPockets.current[0];
             }
 
-            const pointsScored = matchedPocket.points + config.points;
+            const pointsScored = (matchedPocket?.points || 200) + config.points;
             scoreRef.current += pointsScored;
             streakRef.current += 1;
             setScore(scoreRef.current);
             setStreak(streakRef.current);
 
-            // Add defender ONLY when user scores!
+            // Add defender ONLY when user scores, respecting strict defender limits
             const newDefenderLabel = addDefenderOnScore(canvas.width);
 
             // Goal Effects & Sound
@@ -1405,9 +1457,9 @@ const GeminiSlingshot: React.FC = () => {
             goalNetRipple.current = 1.0;
             celebrationBanner.current = {
               active: true,
-              text: matchedPocket.label === 'TOP 90' ? 'GOAL! UPPER 90 STRIKE!' : 'GOAL! CLEAN FINISH!',
+              text: matchedPocket?.label === 'TOP 90' ? 'GOAL! UPPER 90 STRIKE!' : 'GOAL! CLEAN FINISH!',
               subtext: newDefenderLabel 
-                ? `+${pointsScored} PTS • DEFENDER ADDED (${newDefenderLabel})`
+                ? `+${pointsScored} PTS • ${newDefenderLabel}`
                 : `+${pointsScored} POINTS (${config.label})`,
               timer: 2.0,
               color: '#ffd54f'
@@ -1428,7 +1480,7 @@ const GeminiSlingshot: React.FC = () => {
           }
 
           // Out of Bounds
-          if (ballPos.current.y < 30 || ballPos.current.y > canvas.height + 40) {
+          if (ballPos.current.y < 20 || ballPos.current.y > canvas.height + 40) {
             isFlying.current = false;
             ballPos.current = { ...anchorPos.current };
             ballVel.current = { x: 0, y: 0 };
@@ -1497,13 +1549,20 @@ const GeminiSlingshot: React.FC = () => {
         ctx.restore();
       }
 
+      // Responsive Slingshot Dimensions
+      const isMobileScreen = canvas.width < 768;
+      const slingArmOffset = isMobileScreen ? 34 : 45;
+      const slingPedestalW = isMobileScreen ? 36 : 50;
+      const slingLineWidth = isMobileScreen ? 8 : 12;
+      const activeBallRadius = ballRadiusRef.current || 20;
+
       // Slingshot Elastic Bands (Back)
       const bandColor = (isPinching.current || isPointerDragging.current) ? '#fdd835' : 'rgba(255,255,255,0.5)';
       if (!isFlying.current) {
         ctx.beginPath();
-        ctx.moveTo(anchorPos.current.x - 45, anchorPos.current.y + 10);
+        ctx.moveTo(anchorPos.current.x - slingArmOffset, anchorPos.current.y + 10);
         ctx.lineTo(ballPos.current.x, ballPos.current.y);
-        ctx.lineWidth = 6;
+        ctx.lineWidth = isMobileScreen ? 4.5 : 6;
         ctx.strokeStyle = bandColor;
         ctx.lineCap = 'round';
         ctx.stroke();
@@ -1518,7 +1577,7 @@ const GeminiSlingshot: React.FC = () => {
         ctx,
         ballPos.current.x,
         ballPos.current.y,
-        BALL_RADIUS,
+        activeBallRadius,
         ballRotation.current,
         selectedColorRef.current,
         isFlying.current || isPinching.current || isPointerDragging.current
@@ -1529,8 +1588,8 @@ const GeminiSlingshot: React.FC = () => {
       if (!isFlying.current) {
         ctx.beginPath();
         ctx.moveTo(ballPos.current.x, ballPos.current.y);
-        ctx.lineTo(anchorPos.current.x + 45, anchorPos.current.y + 10);
-        ctx.lineWidth = 6;
+        ctx.lineTo(anchorPos.current.x + slingArmOffset, anchorPos.current.y + 10);
+        ctx.lineWidth = isMobileScreen ? 4.5 : 6;
         ctx.strokeStyle = bandColor;
         ctx.lineCap = 'round';
         ctx.stroke();
@@ -1539,18 +1598,18 @@ const GeminiSlingshot: React.FC = () => {
       // Slingshot Turf Launch Pedestal
       ctx.beginPath();
       ctx.moveTo(anchorPos.current.x, canvas.height);
-      ctx.lineTo(anchorPos.current.x, anchorPos.current.y + 55);
-      ctx.lineTo(anchorPos.current.x - 50, anchorPos.current.y + 10);
-      ctx.moveTo(anchorPos.current.x, anchorPos.current.y + 55);
-      ctx.lineTo(anchorPos.current.x + 50, anchorPos.current.y + 10);
-      ctx.lineWidth = 12;
+      ctx.lineTo(anchorPos.current.x, anchorPos.current.y + (isMobileScreen ? 40 : 55));
+      ctx.lineTo(anchorPos.current.x - slingPedestalW, anchorPos.current.y + 10);
+      ctx.moveTo(anchorPos.current.x, anchorPos.current.y + (isMobileScreen ? 40 : 55));
+      ctx.lineTo(anchorPos.current.x + slingPedestalW, anchorPos.current.y + 10);
+      ctx.lineWidth = slingLineWidth;
       ctx.lineCap = 'round';
       ctx.strokeStyle = '#424242';
       ctx.stroke();
 
       // Launch Spot Circle on Turf
       ctx.beginPath();
-      ctx.ellipse(anchorPos.current.x, anchorPos.current.y + 50, 40, 16, 0, 0, Math.PI * 2);
+      ctx.ellipse(anchorPos.current.x, anchorPos.current.y + (isMobileScreen ? 38 : 50), isMobileScreen ? 30 : 40, isMobileScreen ? 12 : 16, 0, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.fill();
 
@@ -1577,29 +1636,31 @@ const GeminiSlingshot: React.FC = () => {
         }
       }
 
-      // In-Game Celebration / Notification Banner
+      // In-Game Celebration / Notification Banner (Responsive)
       if (celebrationBanner.current.active) {
         celebrationBanner.current.timer -= 0.02;
         if (celebrationBanner.current.timer <= 0) {
           celebrationBanner.current.active = false;
         } else {
+          const bannerW = Math.min(isMobileScreen ? 340 : 460, canvas.width * 0.92);
+          const bannerH = isMobileScreen ? 68 : 90;
           ctx.save();
-          ctx.translate(canvas.width / 2, canvas.height * 0.35);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-          ctx.fillRect(-230, -45, 460, 90);
+          ctx.translate(canvas.width / 2, canvas.height * (isMobileScreen ? 0.32 : 0.35));
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+          ctx.fillRect(-bannerW / 2, -bannerH / 2, bannerW, bannerH);
           ctx.strokeStyle = celebrationBanner.current.color;
-          ctx.lineWidth = 3;
-          ctx.strokeRect(-230, -45, 460, 90);
+          ctx.lineWidth = isMobileScreen ? 2 : 3;
+          ctx.strokeRect(-bannerW / 2, -bannerH / 2, bannerW, bannerH);
 
           ctx.fillStyle = celebrationBanner.current.color;
-          ctx.font = '900 26px Roboto, sans-serif';
+          ctx.font = isMobileScreen ? '900 17px Roboto, sans-serif' : '900 26px Roboto, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(celebrationBanner.current.text, 0, -12);
+          ctx.fillText(celebrationBanner.current.text, 0, isMobileScreen ? -10 : -12);
 
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 15px Roboto, sans-serif';
-          ctx.fillText(celebrationBanner.current.subtext, 0, 20);
+          ctx.font = isMobileScreen ? 'bold 11px Roboto, sans-serif' : 'bold 15px Roboto, sans-serif';
+          ctx.fillText(celebrationBanner.current.subtext, 0, isMobileScreen ? 14 : 20);
           ctx.restore();
         }
       }
