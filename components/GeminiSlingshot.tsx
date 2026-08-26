@@ -57,8 +57,9 @@ const GeminiSlingshot: React.FC = () => {
   const ballRotation = useRef<number>(0);
   const anchorPos = useRef<Point>({ x: 0, y: 0 });
   
-  // Webcam Hand Motion Dragging
+  // Webcam Hand Motion & Touch / Pointer Dragging
   const isPinching = useRef<boolean>(false);
+  const isPointerDragging = useRef<boolean>(false);
   const isFlying = useRef<boolean>(false);
   const flightStartTime = useRef<number>(0);
   
@@ -178,22 +179,25 @@ const GeminiSlingshot: React.FC = () => {
 
   // Generate soccer goal & field layout with ONLY 1 INITIAL DEFENDER
   const initPitch = useCallback((width: number, height: number) => {
-    const goalWidth = Math.min(width * 0.58, 540);
-    const goalHeight = 120;
+    const goalWidth = Math.min(width * 0.72, 540);
+    const goalHeight = Math.min(Math.max(75, height * 0.28), 120);
     const goalX = (width - goalWidth) / 2;
-    const goalY = 55;
+    const goalY = Math.max(15, height * 0.08);
 
     // 5 Strategic Goal Scoring Pockets
+    const pocketW = Math.min(80, goalWidth * 0.22);
+    const pocketH = Math.min(50, goalHeight * 0.42);
+
     const pockets: GoalPocket[] = [
       {
         id: 'top-left',
         name: 'Top-Left 90',
         col: 0,
         row: 0,
-        x: goalX + 45,
-        y: goalY + 30,
-        width: 80,
-        height: 50,
+        x: goalX + pocketW * 0.55,
+        y: goalY + pocketH * 0.6,
+        width: pocketW,
+        height: pocketH,
         points: 500,
         color: 'orange',
         label: 'TOP 90',
@@ -204,10 +208,10 @@ const GeminiSlingshot: React.FC = () => {
         name: 'Top-Right 90',
         col: 4,
         row: 0,
-        x: goalX + goalWidth - 45,
-        y: goalY + 30,
-        width: 80,
-        height: 50,
+        x: goalX + goalWidth - pocketW * 0.55,
+        y: goalY + pocketH * 0.6,
+        width: pocketW,
+        height: pocketH,
         points: 500,
         color: 'purple',
         label: 'TOP 90',
@@ -218,10 +222,10 @@ const GeminiSlingshot: React.FC = () => {
         name: 'Bottom-Left Corner',
         col: 1,
         row: 1,
-        x: goalX + 55,
-        y: goalY + goalHeight - 25,
-        width: 80,
-        height: 45,
+        x: goalX + pocketW * 0.68,
+        y: goalY + goalHeight - pocketH * 0.55,
+        width: pocketW,
+        height: pocketH * 0.9,
         points: 300,
         color: 'blue',
         label: 'LOW CORNER',
@@ -232,10 +236,10 @@ const GeminiSlingshot: React.FC = () => {
         name: 'Bottom-Right Corner',
         col: 3,
         row: 1,
-        x: goalX + goalWidth - 55,
-        y: goalY + goalHeight - 25,
-        width: 80,
-        height: 45,
+        x: goalX + goalWidth - pocketW * 0.68,
+        y: goalY + goalHeight - pocketH * 0.55,
+        width: pocketW,
+        height: pocketH * 0.9,
         points: 300,
         color: 'green',
         label: 'LOW CORNER',
@@ -247,9 +251,9 @@ const GeminiSlingshot: React.FC = () => {
         col: 2,
         row: 0,
         x: goalX + goalWidth / 2,
-        y: goalY + 35,
-        width: 100,
-        height: 45,
+        y: goalY + pocketH * 0.7,
+        width: pocketW * 1.25,
+        height: pocketH * 0.9,
         points: 200,
         color: 'red',
         label: 'ROOF NET',
@@ -262,14 +266,14 @@ const GeminiSlingshot: React.FC = () => {
     goalkeeper.current = {
       id: 'keeper',
       x: goalX + goalWidth / 2,
-      y: goalY + goalHeight - 20,
-      radius: 28,
+      y: goalY + goalHeight - 18,
+      radius: Math.min(28, goalHeight * 0.25),
       vx: 2.6,
       vy: 0,
       type: 'keeper',
       color: '#ffca28',
-      patrolMinX: goalX + 60,
-      patrolMaxX: goalX + goalWidth - 60,
+      patrolMinX: goalX + 50,
+      patrolMaxX: goalX + goalWidth - 50,
       active: true,
       label: 'GK'
     };
@@ -279,17 +283,23 @@ const GeminiSlingshot: React.FC = () => {
     totalDefendersAllowedRef.current = 1;
     lastDefenderSpawnTimeRef.current = performance.now();
 
+    const defRadius = Math.min(27, Math.max(18, width * 0.04));
+    const def1Y = goalY + Math.min(190, height * 0.38);
+    const def23Y = goalY + Math.min(160, height * 0.32);
+    const bumperY = goalY + Math.min(260, height * 0.52);
+    const coneY = goalY + Math.min(230, height * 0.46);
+
     const roster: ObstacleBall[] = [
       // Defender 1: Central patrol defender (STARTING DEFENDER)
       {
         id: 'def-1',
         x: width / 2,
-        y: goalY + 190,
-        radius: 27,
+        y: def1Y,
+        radius: defRadius,
         vx: 1.8,
         vy: 0,
-        patrolMinX: width / 2 - 130,
-        patrolMaxX: width / 2 + 130,
+        patrolMinX: width / 2 - Math.min(130, width * 0.28),
+        patrolMaxX: width / 2 + Math.min(130, width * 0.28),
         type: 'defender',
         color: '#e53935',
         active: true, // Only 1 active initially!
@@ -298,13 +308,13 @@ const GeminiSlingshot: React.FC = () => {
       // Defender 2: Right-wing sweeping defender (Unlocks overtime)
       {
         id: 'def-2',
-        x: width / 2 + 140,
-        y: goalY + 160,
-        radius: 26,
+        x: width / 2 + Math.min(140, width * 0.25),
+        y: def23Y,
+        radius: defRadius,
         vx: -1.6,
         vy: 0,
-        patrolMinX: width / 2 + 40,
-        patrolMaxX: width / 2 + 200,
+        patrolMinX: width / 2 + Math.min(40, width * 0.08),
+        patrolMaxX: width / 2 + Math.min(200, width * 0.36),
         type: 'defender',
         color: '#e53935',
         active: false,
@@ -313,13 +323,13 @@ const GeminiSlingshot: React.FC = () => {
       // Defender 3: Left-wing sweeping defender (Unlocks overtime)
       {
         id: 'def-3',
-        x: width / 2 - 140,
-        y: goalY + 160,
-        radius: 26,
+        x: width / 2 - Math.min(140, width * 0.25),
+        y: def23Y,
+        radius: defRadius,
         vx: 1.6,
         vy: 0,
-        patrolMinX: width / 2 - 200,
-        patrolMaxX: width / 2 - 40,
+        patrolMinX: width / 2 - Math.min(200, width * 0.36),
+        patrolMaxX: width / 2 - Math.min(40, width * 0.08),
         type: 'defender',
         color: '#e53935',
         active: false,
@@ -329,12 +339,12 @@ const GeminiSlingshot: React.FC = () => {
       {
         id: 'def-bumper',
         x: width / 2,
-        y: goalY + 260,
-        radius: 28,
+        y: bumperY,
+        radius: defRadius * 1.05,
         vx: 1.2,
         vy: 0,
-        patrolMinX: width / 2 - 90,
-        patrolMaxX: width / 2 + 90,
+        patrolMinX: width / 2 - Math.min(90, width * 0.2),
+        patrolMaxX: width / 2 + Math.min(90, width * 0.2),
         type: 'bumper',
         color: '#8e24aa',
         active: false,
@@ -343,9 +353,9 @@ const GeminiSlingshot: React.FC = () => {
       // Defender 5: Outer Wing Barrier Cone (Unlocks overtime)
       {
         id: 'def-cone-left',
-        x: width / 2 - 220,
-        y: goalY + 230,
-        radius: 22,
+        x: width / 2 - Math.min(220, width * 0.38),
+        y: coneY,
+        radius: defRadius * 0.85,
         vx: 0,
         vy: 0,
         type: 'cone',
@@ -894,6 +904,112 @@ const GeminiSlingshot: React.FC = () => {
     ctx.restore();
   };
 
+  // Native Pointer & Touch Controls for Slingshot (Mobile & Desktop)
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isAiThinkingRef.current || isFlying.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    const distToBall = Math.hypot(px - ballPos.current.x, py - ballPos.current.y);
+    const distToAnchor = Math.hypot(px - anchorPos.current.x, py - anchorPos.current.y);
+
+    if (distToBall < 75 || distToAnchor < 90) {
+      isPointerDragging.current = true;
+      try {
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      } catch (err) {}
+
+      const dragDx = px - anchorPos.current.x;
+      const dragDy = py - anchorPos.current.y;
+      const dragDist = Math.hypot(dragDx, dragDy);
+
+      if (dragDist > MAX_DRAG_DIST) {
+        const angle = Math.atan2(dragDy, dragDx);
+        ballPos.current.x = anchorPos.current.x + Math.cos(angle) * MAX_DRAG_DIST;
+        ballPos.current.y = anchorPos.current.y + Math.sin(angle) * MAX_DRAG_DIST;
+      } else {
+        ballPos.current.x = px;
+        ballPos.current.y = py;
+      }
+      ballRotation.current = (ballPos.current.x - anchorPos.current.x) * 0.03;
+      soundFx.playStretch(Math.min(dragDist / MAX_DRAG_DIST, 1.0));
+    }
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isPointerDragging.current || isFlying.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    const dragDx = px - anchorPos.current.x;
+    const dragDy = py - anchorPos.current.y;
+    const dragDist = Math.hypot(dragDx, dragDy);
+
+    if (dragDist > MAX_DRAG_DIST) {
+      const angle = Math.atan2(dragDy, dragDx);
+      ballPos.current.x = anchorPos.current.x + Math.cos(angle) * MAX_DRAG_DIST;
+      ballPos.current.y = anchorPos.current.y + Math.sin(angle) * MAX_DRAG_DIST;
+    } else {
+      ballPos.current.x = px;
+      ballPos.current.y = py;
+    }
+    ballRotation.current = (ballPos.current.x - anchorPos.current.x) * 0.03;
+    soundFx.playStretch(Math.min(dragDist / MAX_DRAG_DIST, 1.0));
+  }, []);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isPointerDragging.current) return;
+    isPointerDragging.current = false;
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch (err) {}
+
+    if (isAiThinkingRef.current) {
+      ballPos.current = { ...anchorPos.current };
+      return;
+    }
+
+    const dx = anchorPos.current.x - ballPos.current.x;
+    const dy = anchorPos.current.y - ballPos.current.y;
+    const stretchDist = Math.hypot(dx, dy);
+
+    if (stretchDist > 25) {
+      isFlying.current = true;
+      flightStartTime.current = performance.now();
+      const config = COLOR_CONFIG[selectedColorRef.current];
+      const powerRatio = Math.min(stretchDist / MAX_DRAG_DIST, 1.0);
+      const velocityMultiplier = (MIN_FORCE_MULT + (MAX_FORCE_MULT - MIN_FORCE_MULT) * (powerRatio * powerRatio)) * config.powerMultiplier;
+
+      ballVel.current = {
+        x: dx * velocityMultiplier,
+        y: dy * velocityMultiplier
+      };
+      ballSpin.current = config.curveFactor * 2.5;
+
+      // Play sound and particle burst
+      soundFx.playKick(powerRatio);
+      createRicochetParticles(ballPos.current.x, ballPos.current.y, config.hex);
+    } else {
+      ballPos.current = { ...anchorPos.current };
+    }
+  }, [createRicochetParticles]);
+
+  const handlePointerCancel = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isPointerDragging.current) {
+      isPointerDragging.current = false;
+      ballPos.current = { ...anchorPos.current };
+      try {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch (err) {}
+    }
+  }, []);
+
   // --- Main Webcam Hand Tracking & 60 FPS Game Loop ---
 
   useEffect(() => {
@@ -907,7 +1023,8 @@ const GeminiSlingshot: React.FC = () => {
     canvas.width = container.clientWidth;
     canvas.height = container.clientHeight;
 
-    anchorPos.current = { x: canvas.width / 2, y: canvas.height - SLINGSHOT_BOTTOM_OFFSET };
+    const initialBottomOffset = Math.min(130, Math.max(65, canvas.height * 0.22));
+    anchorPos.current = { x: canvas.width / 2, y: canvas.height - initialBottomOffset };
     ballPos.current = { ...anchorPos.current };
 
     initPitch(canvas.width, canvas.height);
@@ -917,6 +1034,13 @@ const GeminiSlingshot: React.FC = () => {
     let cameraInstance: any = null;
     let cameraStream: MediaStream | null = null;
     let isComponentMounted = true;
+
+    // Safety fallback so loading spinner never blocks the user
+    const safetyLoadingTimer = setTimeout(() => {
+      if (isComponentMounted) {
+        setLoading(false);
+      }
+    }, 2500);
 
     // Setup Webcam & MediaPipe Hands
     const setupWebcamAndHandTracker = async () => {
@@ -1036,10 +1160,12 @@ const GeminiSlingshot: React.FC = () => {
       if (canvas.width !== container.clientWidth || canvas.height !== container.clientHeight) {
         canvas.width = container.clientWidth;
         canvas.height = container.clientHeight;
-        anchorPos.current = { x: canvas.width / 2, y: canvas.height - SLINGSHOT_BOTTOM_OFFSET };
-        if (!isFlying.current && !isPinching.current) {
+        const bottomOffset = Math.min(130, Math.max(65, canvas.height * 0.22));
+        anchorPos.current = { x: canvas.width / 2, y: canvas.height - bottomOffset };
+        if (!isFlying.current && !isPinching.current && !isPointerDragging.current) {
           ballPos.current = { ...anchorPos.current };
         }
+        initPitch(canvas.width, canvas.height);
       }
 
       ctx.save();
@@ -1372,7 +1498,7 @@ const GeminiSlingshot: React.FC = () => {
       }
 
       // Slingshot Elastic Bands (Back)
-      const bandColor = isPinching.current ? '#fdd835' : 'rgba(255,255,255,0.5)';
+      const bandColor = (isPinching.current || isPointerDragging.current) ? '#fdd835' : 'rgba(255,255,255,0.5)';
       if (!isFlying.current) {
         ctx.beginPath();
         ctx.moveTo(anchorPos.current.x - 45, anchorPos.current.y + 10);
@@ -1395,7 +1521,7 @@ const GeminiSlingshot: React.FC = () => {
         BALL_RADIUS,
         ballRotation.current,
         selectedColorRef.current,
-        isFlying.current || isPinching.current
+        isFlying.current || isPinching.current || isPointerDragging.current
       );
       ctx.restore();
 
@@ -1528,32 +1654,26 @@ const GeminiSlingshot: React.FC = () => {
   const borderColor = recColorConfig ? recColorConfig.hex : '#444746';
 
   return (
-    <div className="flex w-full h-screen bg-[#121212] overflow-hidden font-roboto text-[#e3e3e3]">
-      
-      {/* MOBILE/TABLET BLOCKER OVERLAY */}
-      <div className="fixed inset-0 z-[100] bg-[#121212] flex flex-col items-center justify-center p-8 text-center md:hidden">
-        <Monitor className="w-16 h-16 text-[#ef5350] mb-6 animate-pulse" />
-        <h2 className="text-2xl font-bold text-[#e3e3e3] mb-4">Desktop View Required</h2>
-        <p className="text-[#c4c7c5] max-w-md text-lg leading-relaxed">
-          This soccer slingshot requires a larger screen for webcam hand tracking & field trajectory mechanics.
-        </p>
-        <div className="mt-8 flex items-center gap-2 text-sm text-[#757575] uppercase tracking-wider font-bold">
-          <div className="w-2 h-2 bg-[#42a5f5] rounded-full"></div>
-          Please maximize window
-        </div>
-      </div>
+    <div className="flex flex-col md:flex-row w-full h-screen bg-[#121212] overflow-hidden font-roboto text-[#e3e3e3]">
 
-      {/* LEFT: Game Area */}
-      <div ref={gameContainerRef} className="flex-1 relative h-full overflow-hidden select-none">
+      {/* UPPER HALF (MOBILE) / LEFT MAIN (DESKTOP): Game Area */}
+      <div ref={gameContainerRef} className="h-1/2 md:h-full w-full md:flex-1 relative overflow-hidden select-none touch-none border-b md:border-b-0 border-[#444746]">
         <video ref={videoRef} className="absolute hidden" playsInline />
-        <canvas ref={canvasRef} className="absolute inset-0" />
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing touch-none"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+        />
 
         {/* Loading Overlay */}
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-[#121212] z-50">
             <div className="flex flex-col items-center">
-              <Loader2 className="w-12 h-12 text-[#42a5f5] animate-spin mb-4" />
-              <p className="text-[#e3e3e3] text-lg font-medium">Starting Stadium & Hand Tracker...</p>
+              <Loader2 className="w-10 h-10 md:w-12 md:h-12 text-[#42a5f5] animate-spin mb-3" />
+              <p className="text-[#e3e3e3] text-sm md:text-lg font-medium">Starting Stadium & Hand Tracker...</p>
             </div>
           </div>
         )}
@@ -1562,39 +1682,39 @@ const GeminiSlingshot: React.FC = () => {
         {isAiThinking && (
           <div 
             className="absolute left-1/2 -translate-x-1/2 z-50 flex flex-col items-center justify-center pointer-events-none"
-            style={{ bottom: '200px', transform: 'translate(-50%, 50%)' }}
+            style={{ bottom: '35%', transform: 'translate(-50%, 50%)' }}
           >
-            <div className="w-[72px] h-[72px] rounded-full border-4 border-t-[#a8c7fa] border-r-[#a8c7fa] border-b-transparent border-l-transparent animate-spin" />
-            <p className="mt-4 text-[#a8c7fa] font-bold text-xs tracking-widest animate-pulse">ANALYZING PITCH...</p>
+            <div className="w-12 h-12 md:w-[72px] md:h-[72px] rounded-full border-4 border-t-[#a8c7fa] border-r-[#a8c7fa] border-b-transparent border-l-transparent animate-spin" />
+            <p className="mt-2 md:mt-4 text-[#a8c7fa] font-bold text-[10px] md:text-xs tracking-widest animate-pulse">ANALYZING PITCH...</p>
           </div>
         )}
 
         {/* HUD: Score Card & Streak Tracker */}
-        <div className="absolute top-6 left-6 z-40 flex items-center gap-3">
-          <div className="bg-[#1e1e1e] p-5 rounded-[28px] border border-[#444746] shadow-2xl flex items-center gap-4 min-w-[180px]">
-            <div className="bg-[#42a5f5]/20 p-3 rounded-full">
-              <Trophy className="w-6 h-6 text-[#42a5f5]" />
+        <div className="absolute top-2.5 left-2.5 md:top-6 md:left-6 z-40 flex items-center gap-2 md:gap-3">
+          <div className="bg-[#1e1e1e]/95 p-2.5 md:p-5 rounded-2xl md:rounded-[28px] border border-[#444746] shadow-2xl flex items-center gap-2.5 md:gap-4 min-w-[110px] md:min-w-[180px] backdrop-blur-sm">
+            <div className="bg-[#42a5f5]/20 p-2 md:p-3 rounded-full">
+              <Trophy className="w-4 h-4 md:w-6 md:h-6 text-[#42a5f5]" />
             </div>
             <div>
-              <p className="text-xs text-[#c4c7c5] uppercase tracking-wider font-medium">Score</p>
-              <p className="text-3xl font-bold text-white">{score.toLocaleString()}</p>
+              <p className="text-[10px] md:text-xs text-[#c4c7c5] uppercase tracking-wider font-medium">Score</p>
+              <p className="text-xl md:text-3xl font-bold text-white leading-none md:leading-normal">{score.toLocaleString()}</p>
             </div>
           </div>
 
           {streak > 1 && (
-            <div className="bg-[#1e1e1e] px-4 py-3 rounded-[24px] border border-[#ffa726] shadow-xl flex items-center gap-2 animate-bounce">
-              <Flame className="w-5 h-5 text-[#ffa726]" />
+            <div className="bg-[#1e1e1e]/95 px-2.5 py-1.5 md:px-4 md:py-3 rounded-xl md:rounded-[24px] border border-[#ffa726] shadow-xl flex items-center gap-1.5 md:gap-2 animate-bounce backdrop-blur-sm">
+              <Flame className="w-4 h-4 md:w-5 md:h-5 text-[#ffa726]" />
               <div>
-                <p className="text-[10px] text-[#ffa726] font-bold uppercase tracking-wider">Goal Streak</p>
-                <p className="text-lg font-black text-white">{streak}x</p>
+                <p className="text-[8px] md:text-[10px] text-[#ffa726] font-bold uppercase tracking-wider">Streak</p>
+                <p className="text-sm md:text-lg font-black text-white leading-none">{streak}x</p>
               </div>
             </div>
           )}
         </div>
 
         {/* HUD: Ball Style & Technique Picker */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40">
-          <div className="bg-[#1e1e1e] px-6 py-4 rounded-[32px] border border-[#444746] shadow-2xl flex items-center gap-4">
+        <div className="absolute bottom-2 md:bottom-6 left-1/2 -translate-x-1/2 z-40">
+          <div className="bg-[#1e1e1e]/95 px-2.5 py-1.5 md:px-6 md:py-4 rounded-full md:rounded-[32px] border border-[#444746] shadow-2xl flex items-center gap-2 md:gap-4 backdrop-blur-sm">
             <div className="hidden md:block mr-2">
               <p className="text-xs text-[#c4c7c5] uppercase font-bold tracking-wider">Ball Technique</p>
               <p className="text-[11px] text-gray-400">{COLOR_CONFIG[selectedColor].technique}</p>
@@ -1613,29 +1733,29 @@ const GeminiSlingshot: React.FC = () => {
                     soundFx.playClick(520);
                   }}
                   title={`${config.label} - ${config.description}`}
-                  className={`relative w-14 h-14 rounded-full transition-all duration-300 transform flex items-center justify-center
-                    ${isSelected ? 'scale-110 ring-4 ring-white/50 z-10' : 'opacity-80 hover:opacity-100 hover:scale-105'}
+                  className={`relative w-8 h-8 md:w-14 md:h-14 rounded-full transition-all duration-300 transform flex items-center justify-center
+                    ${isSelected ? 'scale-110 ring-2 md:ring-4 ring-white/60 z-10' : 'opacity-80 hover:opacity-100 hover:scale-105'}
                   `}
                   style={{ 
                     background: `radial-gradient(circle at 35% 35%, ${config.hex}, ${adjustColor(config.hex, -60)})`,
                     boxShadow: isSelected 
-                      ? `0 0 20px ${config.hex}, inset 0 -4px 4px rgba(0,0,0,0.3)`
-                      : '0 4px 6px rgba(0,0,0,0.3), inset 0 -4px 4px rgba(0,0,0,0.3)'
+                      ? `0 0 16px ${config.hex}, inset 0 -3px 3px rgba(0,0,0,0.3)`
+                      : '0 2px 4px rgba(0,0,0,0.3), inset 0 -3px 3px rgba(0,0,0,0.3)'
                   }}
                 >
                   {/* Soccer ball seam icon graphic on button */}
-                  <div className="w-5 h-5 rounded-full border border-black/40 flex items-center justify-center">
-                    <div className="w-2.5 h-2.5 bg-black/50 rounded-sm transform rotate-45" />
+                  <div className="w-3.5 h-3.5 md:w-5 md:h-5 rounded-full border border-black/40 flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 md:w-2.5 md:h-2.5 bg-black/50 rounded-sm transform rotate-45" />
                   </div>
 
                   {/* Glossy highlight */}
-                  <div className="absolute top-2 left-3 w-4 h-2 bg-white/40 rounded-full transform -rotate-45 filter blur-[1px]" />
+                  <div className="absolute top-1 left-2 md:top-2 md:left-3 w-2.5 md:w-4 h-1.5 md:h-2 bg-white/40 rounded-full transform -rotate-45 filter blur-[1px]" />
                   
                   {isRecommended && !isSelected && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-black text-[10px] font-bold flex items-center justify-center rounded-full animate-bounce shadow-md">!</span>
+                    <span className="absolute -top-1 -right-1 w-4 h-4 md:w-5 md:h-5 bg-white text-black text-[8px] md:text-[10px] font-bold flex items-center justify-center rounded-full animate-bounce shadow-md">!</span>
                   )}
                   {isSelected && (
-                    <MousePointerClick className="w-6 h-6 text-white/90 drop-shadow-md absolute" />
+                    <MousePointerClick className="w-3.5 h-3.5 md:w-6 md:h-6 text-white/90 drop-shadow-md absolute" />
                   )}
                 </button>
               );
@@ -1644,22 +1764,22 @@ const GeminiSlingshot: React.FC = () => {
         </div>
 
         {/* Bottom Gesture Guidance Tip */}
-        {!isPinching.current && !isFlying.current && !isAiThinking && (
-          <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-30 pointer-events-none opacity-80">
-            <div className="flex items-center gap-2 bg-[#1e1e1e]/95 px-5 py-2.5 rounded-full border border-[#444746] backdrop-blur-sm shadow-xl">
-              <Play className="w-3.5 h-3.5 text-[#42a5f5] fill-current" />
-              <p className="text-[#e3e3e3] text-xs font-semibold">Pinch Fingers (Index + Thumb) to Grab & Drag Slingshot</p>
+        {!isPinching.current && !isPointerDragging.current && !isFlying.current && !isAiThinking && (
+          <div className="absolute bottom-12 md:bottom-28 left-1/2 -translate-x-1/2 z-30 pointer-events-none opacity-85">
+            <div className="flex items-center gap-1.5 md:gap-2 bg-[#1e1e1e]/95 px-3 py-1 md:px-5 md:py-2.5 rounded-full border border-[#444746] backdrop-blur-sm shadow-xl">
+              <Play className="w-3 md:w-3.5 h-3 md:h-3.5 text-[#42a5f5] fill-current" />
+              <p className="text-[#e3e3e3] text-[10px] md:text-xs font-semibold whitespace-nowrap">Drag Ball or Pinch Fingers to Shoot</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* RIGHT: Debug Panel */}
-      <div className="w-[380px] bg-[#1e1e1e] border-l border-[#444746] flex flex-col h-full overflow-hidden shadow-2xl">
+      {/* LOWER HALF (MOBILE) / RIGHT SIDEBAR (DESKTOP): Flash Strategy & Debug Panel */}
+      <div className="h-1/2 md:h-full w-full md:w-[380px] bg-[#1e1e1e] md:border-l border-[#444746] flex flex-col overflow-hidden shadow-2xl z-20">
         
         {/* FLASH STRATEGY SECTION */}
         <div 
-          className="p-5 border-b-4 transition-colors duration-500 flex flex-col gap-2"
+          className="p-3.5 md:p-5 border-b-2 md:border-b-4 transition-colors duration-500 flex flex-col gap-2 shrink-0"
           style={{ 
             backgroundColor: '#252525',
             borderColor: geminiHelpEnabled ? borderColor : '#444746'
@@ -1667,19 +1787,19 @@ const GeminiSlingshot: React.FC = () => {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <BrainCircuit className="w-5 h-5" style={{ color: geminiHelpEnabled ? borderColor : '#757575' }} />
-              <h2 className="font-bold text-sm tracking-widest uppercase" style={{ color: geminiHelpEnabled ? borderColor : '#c4c7c5' }}>
+              <BrainCircuit className="w-4 h-4 md:w-5 md:h-5" style={{ color: geminiHelpEnabled ? borderColor : '#757575' }} />
+              <h2 className="font-bold text-xs md:text-sm tracking-widest uppercase" style={{ color: geminiHelpEnabled ? borderColor : '#c4c7c5' }}>
                 Flash Strategy
               </h2>
             </div>
             
             <div className="flex items-center gap-2">
-              {isAiThinking && <Loader2 className="w-4 h-4 animate-spin text-white/50" />}
+              {isAiThinking && <Loader2 className="w-3.5 h-3.5 md:w-4 md:h-4 animate-spin text-white/50" />}
               
               {/* Gemini Help Toggle */}
               <button
                 onClick={handleToggleGeminiHelp}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wider flex items-center gap-1.5 transition-all border ${
+                className={`px-2.5 py-1 rounded-full text-[10px] md:text-[11px] font-bold tracking-wider flex items-center gap-1.5 transition-all border ${
                   geminiHelpEnabled 
                     ? 'bg-[#a8c7fa]/20 border-[#a8c7fa]/50 text-[#a8c7fa] hover:bg-[#a8c7fa]/30' 
                     : 'bg-[#303030] border-[#555] text-gray-400 hover:text-white'
@@ -1701,24 +1821,24 @@ const GeminiSlingshot: React.FC = () => {
             </div>
           </div>
           
-          <p className="text-[#e3e3e3] text-sm leading-relaxed font-bold">
+          <p className="text-[#e3e3e3] text-xs md:text-sm leading-relaxed font-bold">
             {geminiHelpEnabled ? aiHint : 'Gemini Strategy Assistance is disabled. Toggle AI ON above to receive live tactical hints & aim guides.'}
           </p>
           
           {geminiHelpEnabled && aiRationale && (
-            <div className="flex gap-2 mt-1">
-              <Lightbulb className="w-4 h-4 text-[#a8c7fa] shrink-0 mt-0.5" />
-              <p className="text-[#a8c7fa] text-xs italic opacity-90 leading-tight">
+            <div className="flex gap-1.5 md:gap-2 mt-0.5">
+              <Lightbulb className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#a8c7fa] shrink-0 mt-0.5" />
+              <p className="text-[#a8c7fa] text-[11px] md:text-xs italic opacity-90 leading-tight">
                 {aiRationale}
               </p>
             </div>
           )}
           
           {geminiHelpEnabled && aiRecommendedColor && (
-            <div className="flex items-center gap-2 mt-3 bg-black/20 p-2 rounded">
-              <Target className="w-4 h-4 text-gray-400" />
-              <span className="text-xs text-gray-400 uppercase tracking-wide">Rec. Technique:</span>
-              <span className="text-xs font-bold uppercase" style={{ color: COLOR_CONFIG[aiRecommendedColor].hex }}>
+            <div className="flex items-center gap-2 mt-1.5 bg-black/20 p-1.5 md:p-2 rounded">
+              <Target className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-400" />
+              <span className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wide">Rec. Technique:</span>
+              <span className="text-[10px] md:text-xs font-bold uppercase" style={{ color: COLOR_CONFIG[aiRecommendedColor].hex }}>
                 {COLOR_CONFIG[aiRecommendedColor].label}
               </span>
             </div>
@@ -1726,22 +1846,22 @@ const GeminiSlingshot: React.FC = () => {
         </div>
 
         {/* DEBUG HEADER */}
-        <div className="p-3 border-b border-[#444746] bg-[#1e1e1e] flex items-center gap-2 text-[#757575]">
-          <Terminal className="w-4 h-4" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Debugger</span>
+        <div className="p-2 md:p-3 border-b border-[#444746] bg-[#1e1e1e] flex items-center gap-2 text-[#757575] shrink-0">
+          <Terminal className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider">Debugger & Tactical Stream</span>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4 md:space-y-6">
           
           {/* Status Section */}
           <div>
-            <div className="flex items-center gap-2 mb-2 text-[#c4c7c5] text-xs font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-2 mb-1.5 text-[#c4c7c5] text-[10px] md:text-xs font-bold uppercase tracking-wider">
               <BrainCircuit className="w-3 h-3" /> Status
             </div>
-            <div className={`p-3 rounded-lg border ${isAiThinking ? 'bg-[#a8c7fa]/10 border-[#a8c7fa]/30 text-[#a8c7fa]' : 'bg-[#444746]/20 border-[#444746]/50 text-[#c4c7c5]'}`}>
+            <div className={`p-2.5 md:p-3 rounded-lg border ${isAiThinking ? 'bg-[#a8c7fa]/10 border-[#a8c7fa]/30 text-[#a8c7fa]' : 'bg-[#444746]/20 border-[#444746]/50 text-[#c4c7c5]'}`}>
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${isAiThinking ? 'bg-[#a8c7fa] animate-pulse' : 'bg-[#66bb6a]'}`} />
-                <span className="text-sm font-mono">{isAiThinking ? 'Processing Vision...' : 'Tactical Vision Ready'}</span>
+                <span className="text-xs md:text-sm font-mono">{isAiThinking ? 'Processing Vision...' : 'Tactical Vision Ready'}</span>
               </div>
             </div>
           </div>
@@ -1749,12 +1869,12 @@ const GeminiSlingshot: React.FC = () => {
           {/* Vision Input */}
           {debugInfo?.screenshotBase64 && (
             <div>
-              <div className="flex items-center gap-2 mb-2 text-[#c4c7c5] text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2 mb-1.5 text-[#c4c7c5] text-[10px] md:text-xs font-bold uppercase tracking-wider">
                 <Eye className="w-3 h-3" /> Vision Input
               </div>
-              <div className="rounded-lg overflow-hidden border border-[#444746] bg-black/50 relative group">
+              <div className="rounded-lg overflow-hidden border border-[#444746] bg-black/50 relative group max-w-[280px]">
                 <img src={debugInfo.screenshotBase64} alt="AI Vision" className="w-full h-auto opacity-80 group-hover:opacity-100 transition-opacity" />
-                <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-1 text-[10px] text-center text-gray-400 font-mono">
+                <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-1 text-[9px] text-center text-gray-400 font-mono">
                   Sent to gemini-3.7-flash
                 </div>
               </div>
@@ -1764,10 +1884,10 @@ const GeminiSlingshot: React.FC = () => {
           {/* Prompt Context */}
           {debugInfo?.promptContext && (
             <div>
-              <div className="flex items-center gap-2 mb-2 text-[#c4c7c5] text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2 mb-1.5 text-[#c4c7c5] text-[10px] md:text-xs font-bold uppercase tracking-wider">
                 <Terminal className="w-3 h-3" /> Tactical Context
               </div>
-              <div className="bg-[#121212] p-3 rounded-lg border border-[#444746] font-mono text-[10px] text-gray-400 h-32 overflow-y-auto whitespace-pre-wrap leading-tight">
+              <div className="bg-[#121212] p-2.5 md:p-3 rounded-lg border border-[#444746] font-mono text-[9px] md:text-[10px] text-gray-400 h-24 md:h-32 overflow-y-auto whitespace-pre-wrap leading-tight">
                 {debugInfo.promptContext}
               </div>
             </div>
@@ -1776,52 +1896,52 @@ const GeminiSlingshot: React.FC = () => {
           {/* AI Output Stats */}
           {debugInfo && (
             <div>
-              <div className="flex items-center gap-2 mb-2 text-[#c4c7c5] text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2 mb-1.5 text-[#c4c7c5] text-[10px] md:text-xs font-bold uppercase tracking-wider">
                 <BrainCircuit className="w-3 h-3" /> AI Output
               </div>
               
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <div className="bg-[#2a2a2a] p-2 rounded border border-[#444746]">
-                  <p className="text-[10px] text-gray-500 mb-1">Latency</p>
-                  <div className="flex items-center gap-1 text-[#a8c7fa] font-mono font-bold">
+                  <p className="text-[9px] text-gray-500 mb-0.5">Latency</p>
+                  <div className="flex items-center gap-1 text-[#a8c7fa] font-mono font-bold text-xs md:text-sm">
                     {debugInfo.latency}ms
                   </div>
                 </div>
                 <div className="bg-[#2a2a2a] p-2 rounded border border-[#444746]">
-                  <p className="text-[10px] text-gray-500 mb-1">Rec. Technique</p>
-                  <div className="flex items-center gap-1 text-[#e3e3e3] font-mono font-bold capitalize">
+                  <p className="text-[9px] text-gray-500 mb-0.5">Rec. Technique</p>
+                  <div className="flex items-center gap-1 text-[#e3e3e3] font-mono font-bold capitalize text-xs md:text-sm">
                     {debugInfo.parsedResponse?.recommendedColor || '--'}
                   </div>
                 </div>
               </div>
 
               {debugInfo.error && (
-                <div className="bg-[#ef5350]/10 border border-[#ef5350]/30 p-3 rounded-lg mb-3">
+                <div className="bg-[#ef5350]/10 border border-[#ef5350]/30 p-2.5 rounded-lg mb-3">
                   <div className="flex items-start gap-2 text-[#ef5350]">
-                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-xs font-bold">PARSE ERROR DETAILS</p>
-                      <p className="text-[10px] font-mono mt-1 break-all">{debugInfo.error}</p>
+                      <p className="text-[11px] font-bold">PARSE ERROR DETAILS</p>
+                      <p className="text-[9px] font-mono mt-0.5 break-all">{debugInfo.error}</p>
                     </div>
                   </div>
                 </div>
               )}
 
-              <p className="text-[10px] text-gray-500 mb-1">Raw Response Text</p>
-              <div className="bg-[#121212] p-3 rounded-lg border border-[#444746] font-mono text-[11px] text-[#66bb6a] max-h-40 overflow-y-auto whitespace-pre-wrap mb-3 border-l-2 border-l-[#66bb6a]">
+              <p className="text-[9px] text-gray-500 mb-1">Raw Response Text</p>
+              <div className="bg-[#121212] p-2.5 rounded-lg border border-[#444746] font-mono text-[10px] text-[#66bb6a] max-h-32 md:max-h-40 overflow-y-auto whitespace-pre-wrap mb-3 border-l-2 border-l-[#66bb6a]">
                 {debugInfo.rawResponse}
               </div>
 
-              <p className="text-[10px] text-gray-500 mb-1">Parsed JSON</p>
-              <div className="bg-[#121212] p-3 rounded-lg border border-[#444746] font-mono text-[10px] text-[#a8c7fa] overflow-x-auto">
+              <p className="text-[9px] text-gray-500 mb-1">Parsed JSON</p>
+              <div className="bg-[#121212] p-2.5 rounded-lg border border-[#444746] font-mono text-[9px] text-[#a8c7fa] overflow-x-auto">
                 <pre>{JSON.stringify(debugInfo.parsedResponse || { error: "Local engine active" }, null, 2)}</pre>
               </div>
             </div>
           )}
         </div>
         
-        <div className="p-3 bg-[#252525] border-t border-[#444746] text-center">
-          <p className="text-[10px] text-gray-500 font-medium">Powered by Google Gemini 3 Flash</p>
+        <div className="p-2 md:p-3 bg-[#252525] border-t border-[#444746] text-center shrink-0">
+          <p className="text-[9px] md:text-[10px] text-gray-500 font-medium">Powered by Google Gemini 3 Flash</p>
         </div>
       </div>
     </div>
