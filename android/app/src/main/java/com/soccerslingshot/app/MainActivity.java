@@ -99,8 +99,8 @@ public class MainActivity extends AppCompatActivity {
             );
         }
 
-        // Load virtual https URL mapped by WebViewAssetLoader to assets/dist/
-        webView.loadUrl("https://appassets.androidplatform.net/assets/dist/index.html");
+        // Load virtual https URL mapped by WebViewAssetLoader to assets/
+        webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
     }
 
     @Override

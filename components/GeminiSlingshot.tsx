@@ -291,30 +291,89 @@ const GeminiSlingshot: React.FC = () => {
     goalPockets.current = pockets;
 
     // Goalkeeper positioning along goal line
+    const keeperPatrolMin = goalX + (isMobile ? 25 : 50);
+    const keeperPatrolMax = goalX + goalWidth - (isMobile ? 25 : 50);
+    const prevKeeperVx = goalkeeper.current?.vx ?? 2.6;
+    const keeperSpeed = isMobile ? 1.8 : 2.6;
+
     goalkeeper.current = {
       id: 'keeper',
-      x: goalX + goalWidth / 2,
+      x: goalkeeper.current?.x ? Math.max(keeperPatrolMin, Math.min(keeperPatrolMax, goalkeeper.current.x)) : goalX + goalWidth / 2,
       y: goalY + goalHeight - (isMobile ? 12 : 18),
       radius: keeperRadius,
-      vx: isMobile ? 1.8 : 2.6,
+      vx: prevKeeperVx >= 0 ? keeperSpeed : -keeperSpeed,
       vy: 0,
       type: 'keeper',
       color: '#ffca28',
-      patrolMinX: goalX + (isMobile ? 25 : 50),
-      patrolMaxX: goalX + goalWidth - (isMobile ? 25 : 50),
+      patrolMinX: keeperPatrolMin,
+      patrolMaxX: keeperPatrolMax,
       active: true,
       label: 'GK'
     };
-
-    // Full Obstacle Roster (Starts with ONLY ONE ACTIVE DEFENDER)
-    defenderLevelRef.current = 1;
-    totalDefendersAllowedRef.current = 1;
-    lastDefenderSpawnTimeRef.current = performance.now();
 
     const def1Y = goalY + (isMobile ? Math.min(110, height * 0.28) : Math.min(190, height * 0.38));
     const def23Y = goalY + (isMobile ? Math.min(85, height * 0.22) : Math.min(160, height * 0.32));
     const bumperY = goalY + (isMobile ? Math.min(145, height * 0.38) : Math.min(260, height * 0.52));
     const coneY = goalY + (isMobile ? Math.min(125, height * 0.33) : Math.min(230, height * 0.46));
+
+    // If defenders already exist in the active session, PRESERVE their count and active state
+    // while resizing their radius, orientation, and patrol bounds for the new screen dimensions
+    if (obstacles.current && obstacles.current.length > 0) {
+      obstacles.current.forEach(obs => {
+        obs.radius = obs.type === 'bumper' 
+          ? defRadius * 1.05 
+          : (obs.type === 'cone' ? defRadius * 0.85 : defRadius);
+
+        if (obs.id === 'def-1') {
+          obs.y = def1Y;
+          obs.patrolMinX = width / 2 - Math.min(isMobile ? 70 : 130, width * 0.28);
+          obs.patrolMaxX = width / 2 + Math.min(isMobile ? 70 : 130, width * 0.28);
+          const spd = isMobile ? 1.4 : 1.8;
+          obs.vx = obs.vx >= 0 ? spd : -spd;
+        } else if (obs.id === 'def-2') {
+          obs.y = def23Y;
+          obs.patrolMinX = width / 2 + Math.min(isMobile ? 18 : 40, width * 0.08);
+          obs.patrolMaxX = width / 2 + Math.min(isMobile ? 100 : 200, width * 0.36);
+          const spd = isMobile ? 1.3 : 1.6;
+          obs.vx = obs.vx >= 0 ? spd : -spd;
+        } else if (obs.id === 'def-3') {
+          obs.y = def23Y;
+          obs.patrolMinX = width / 2 - Math.min(isMobile ? 100 : 200, width * 0.36);
+          obs.patrolMaxX = width / 2 - Math.min(isMobile ? 18 : 40, width * 0.08);
+          const spd = isMobile ? 1.3 : 1.6;
+          obs.vx = obs.vx >= 0 ? spd : -spd;
+        } else if (obs.id === 'def-bumper') {
+          obs.y = bumperY;
+          obs.patrolMinX = width / 2 - Math.min(isMobile ? 45 : 90, width * 0.2);
+          obs.patrolMaxX = width / 2 + Math.min(isMobile ? 45 : 90, width * 0.2);
+          const spd = isMobile ? 1.0 : 1.2;
+          obs.vx = obs.vx >= 0 ? spd : -spd;
+        } else if (obs.id === 'def-cone-left') {
+          obs.y = coneY;
+          obs.x = width / 2 - Math.min(isMobile ? 100 : 220, width * 0.38);
+        } else {
+          // Additional custom spawned defenders
+          obs.patrolMinX = width * (isMobile ? 0.15 : 0.2);
+          obs.patrolMaxX = width * (isMobile ? 0.85 : 0.8);
+          obs.y = goalY + (isMobile ? Math.min(height * 0.35, 120) : Math.min(height * 0.45, 220));
+          const spd = isMobile ? 1.3 : 1.7;
+          obs.vx = obs.vx >= 0 ? spd : -spd;
+        }
+
+        // Keep defenders within newly scaled patrol bounds
+        if (obs.patrolMinX !== undefined && obs.patrolMaxX !== undefined) {
+          if (obs.x < obs.patrolMinX || obs.x > obs.patrolMaxX) {
+            obs.x = Math.max(obs.patrolMinX, Math.min(obs.patrolMaxX, obs.x));
+          }
+        }
+      });
+      return;
+    }
+
+    // Full Obstacle Initial Roster (Fresh session starts with ONLY ONE ACTIVE DEFENDER)
+    defenderLevelRef.current = 1;
+    totalDefendersAllowedRef.current = 1;
+    lastDefenderSpawnTimeRef.current = performance.now();
 
     const roster: ObstacleBall[] = [
       // Defender 1: Central patrol defender (STARTING DEFENDER)
