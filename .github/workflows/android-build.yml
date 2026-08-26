@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install Dependencies
         run: npm install
@@ -43,12 +43,12 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
 
       - name: Build Android Debug APK
         working-directory: android
-        run: |
-          chmod +x gradlew || true
-          gradle assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
